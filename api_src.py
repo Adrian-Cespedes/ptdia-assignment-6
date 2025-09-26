@@ -1,4 +1,3 @@
-# api.py
 import io
 import pickle
 from pathlib import Path
@@ -106,29 +105,41 @@ def read_root():
 
 @app.post("/predict/")
 async def predict(image: UploadFile = File(...)):
-    if not model:
-        return {"error": "El modelo no está disponible. Revisa los logs del servidor."}
+    try:
+        if not model:
+            return {"error": "El modelo no está disponible. Revisa los logs del servidor."}
 
-    contents = await image.read()
-    
-    pil_image = Image.open(io.BytesIO(contents)).convert('L')
+        print(f"Recibiendo archivo: {image.filename}, tipo: {image.content_type}")
+        
+        contents = await image.read()
+        print(f"Tamaño del archivo: {len(contents)} bytes")
+        
+        pil_image = Image.open(io.BytesIO(contents)).convert('L')
+        print(f"Imagen convertida a PIL, tamaño: {pil_image.size}")
 
-    # invertir colores por gradio
-    pil_image = ImageOps.invert(pil_image)
+        # invertir colores por gradio
+        pil_image = ImageOps.invert(pil_image)
 
-    image_tensor = image_transform(pil_image)
-    
-    image_tensor = image_tensor.unsqueeze(0)
+        image_tensor = image_transform(pil_image)
+        print(f"Tensor shape: {image_tensor.shape}")
+        
+        image_tensor = image_tensor.unsqueeze(0)
+        print(f"Tensor shape después de unsqueeze: {image_tensor.shape}")
 
-    # predicción
-    with torch.no_grad():
-        output = model(image_tensor)
-    
-    # obtener la clase con mayor probabilidad
-    prediction = torch.argmax(output, dim=1)
-    predicted_digit = prediction.item()
-    
-    print(f"Imagen recibida. Predicción: {predicted_digit}")
-    
-    
-    return {"prediction": predicted_digit}
+        # predicción
+        with torch.no_grad():
+            output = model(image_tensor)
+        
+        # obtener la clase con mayor probabilidad
+        prediction = torch.argmax(output, dim=1)
+        predicted_digit = prediction.item()
+        
+        print(f"Imagen recibida. Predicción: {predicted_digit}")
+        
+        return {"prediction": predicted_digit}
+        
+    except Exception as e:
+        print(f"Error en predicción: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"error": f"Error procesando imagen: {str(e)}"}

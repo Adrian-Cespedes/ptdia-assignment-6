@@ -4,9 +4,10 @@ import numpy as np
 from PIL import Image
 import io
 
-API_URL = "http://127.0.0.1:8000/predict"
+API_URL = "http://127.0.0.1:8000/predict/"
 
 def predict(img):
+    img = img["composite"]
     # Convertir canvas del Sketchpad a PNG y mandarlo a FastAPI
     if img is not None and img.size > 0:
         # Convertir el array numpy a imagen PIL y redimensionar a 28x28
@@ -25,12 +26,21 @@ def predict(img):
         pil_img.save(file_bytes, format="PNG")
         file_bytes.seek(0)
 
-        response = requests.post(API_URL, files={"file": ("digit.png", file_bytes, "image/png")})
-        if response.status_code == 200:
-            pred = response.json()["digit"]
-            return pred
-        else:
-            return "Error en API"
+        try:
+            response = requests.post(API_URL, files={"image": ("digit.png", file_bytes, "image/png")})
+            if response.status_code == 200:
+                pred = response.json()["prediction"]
+                return pred
+            else:
+                print(f"API Error: {response.status_code} - {response.text}")
+                return f"Error en API: {response.status_code}"
+        except requests.exceptions.RequestException as e:
+            print(f"Request Error: {e}")
+            return f"Error de conexión: {str(e)}"
+        except KeyError as e:
+            print(f"Response parsing error: {e}")
+            print(f"Response content: {response.text}")
+            return f"Error en respuesta: {str(e)}"
     return "No input"
 
 with gr.Blocks() as demo:
